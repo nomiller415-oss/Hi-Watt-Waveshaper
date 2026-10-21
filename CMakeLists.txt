@@ -17,7 +17,7 @@ include(JUCEDefaults)
 # This is the internal name of the project and the name of JUCE's shared code target
 # Note: This cannot have spaces (it may be 2024, but you can't have it all!)
 # Worry not, JUCE's PRODUCT_NAME can have spaces (and is what DAWs display)
-set(PROJECT_NAME "NewProject")
+set(PROJECT_NAME "HiWatt")
 
 # Worry not, JUCE's PRODUCT_NAME can have spaces (and is what DAWs will display)
 # You can also just have it be the same thing as PROJECT_NAME
@@ -25,7 +25,7 @@ set(PROJECT_NAME "NewProject")
 #   set(PROJECT_NAME "MyPlugin_v${MAJOR_VERSION}")
 # Doing so enables major versions to show up in IDEs and DAWs as separate plugins
 # allowing you to change parameters and behavior without breaking existing user projects
-set(PRODUCT_NAME "New Product")
+set(PRODUCT_NAME "Hi-Watt 5Watt")
 
 # Change me! Used for the MacOS bundle name and Installers
 set(COMPANY_NAME "Noah Miller")
@@ -66,6 +66,16 @@ add_subdirectory(modules/clap-juce-extensions EXCLUDE_FROM_ALL)
 # This adds the melatonin inspector module
 add_subdirectory (modules/melatonin_inspector)
 
+set(WEB_UI_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/plugin-UI/public")
+
+# 2. Locate the official JUCE 8 frontend wrapper library files 
+# This targets the framework's internal JS files located within juce_gui_extra
+set(JUCE_JS_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/JUCE/modules/juce_gui_extra/native/javascript")
+
+# 3. Use CMake to copy the framework files into your public UI folder during generation
+file(COPY "${JUCE_JS_SRC_DIR}/" 
+     DESTINATION "${WEB_UI_SRC_DIR}/js/juce")
+
 if(MSVC)
     set(NUGET_DIR "${CMAKE_BINARY_DIR}/nuget")
     set(NUGET_EXE "${NUGET_DIR}/nuget.exe")
@@ -77,23 +87,21 @@ if(MSVC)
         file(DOWNLOAD "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe" "${NUGET_EXE}")
     endif()
 
-    set(WEBVIEW2_VERSION "1.0.1901.177")
+    set(WEBVIEW2_VERSION ".1.0.4258.31")
     
     find_program(NUGET_EXE NAMES nuget REQUIRED)
+
+    if(NOT EXISTS "${CMAKE_BINARY_DIR}/packages/Microsoft.Web.WebView2${WEBVIEW2_VERSION}")
     
-    # Download the package to the build directory
-    execute_process(
-        COMMAND ${NUGET_EXE} install Microsoft.Web.WebView2 -OutputDirectory "${CMAKE_BINARY_DIR}/packages"
-    )
+        execute_process(COMMAND ${NUGET_EXE} install Microsoft.Web.WebView2 -OutputDirectory "${CMAKE_BINARY_DIR}/packages")
+    
+    endif()
+    
+        message(STATUS "ITS THERE")
+    
     
     # Point JUCE to the exact folder containing the downloaded NuGet package
-    set(JUCE_WEBVIEW2_PACKAGE_LOCATION "${CMAKE_BINARY_DIR}/packages")
-endif()
-
-if(MSVC OR WIN32)
-    set(USE_WEBVIEW2_BACKEND TRUE)
-else()
-    set(USE_WEBVIEW2_BACKEND FALSE)
+    
 endif()
 
 # See `docs/CMake API.md` in the JUCE repo for all config options
@@ -103,7 +111,6 @@ juce_add_plugin("${PROJECT_NAME}"
 
     NEEDS_WEBVIEW2 TRUE
     NEEDS_WEB_BROWSER TRUE
-    NEEDS_LINUX_SUBPROCESS_HELPER TRUE 
     # Change me!
     COMPANY_NAME "${COMPANY_NAME}"
     BUNDLE_ID "${BUNDLE_ID}"
@@ -149,6 +156,9 @@ pamplejuce_shared_code_defaults()
 file(GLOB_RECURSE SourceFiles CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/source/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/source/*.h")
 target_sources(SharedCode INTERFACE ${SourceFiles})
 
+
+# Adds a BinaryData target for embedding assets into the binar
+
 # Adds a BinaryData target for embedding assets into the binary
 pamplejuce_add_assets()
 
@@ -161,6 +171,7 @@ target_compile_definitions(SharedCode
 
     # JUCE_WEB_BROWSER and JUCE_USE_CURL off by default
     JUCE_WEB_BROWSER=1   # <-- set to 1 so WebBrowserComponent is compiled in
+    JUCE_USE_WIN_WEBVIEW2=1
     JUCE_USE_CURL=0     # If you set this to 1, add `NEEDS_CURL TRUE` to the `juce_add_plugin` call
     JUCE_VST3_CAN_REPLACE_VST2=0
 
@@ -196,44 +207,6 @@ target_link_libraries(SharedCode
 
 # Link the JUCE plugin targets our SharedCode target
 target_link_libraries("${PROJECT_NAME}" PRIVATE SharedCode)
-
-# --- LINUX GTK & WEBKIT INJECTION ---
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    find_package(PkgConfig REQUIRED)
-    
-    pkg_check_modules(WEBKIT_GTK webkit2gtk-4.1)
-    if(NOT WEBKIT_GTK_FOUND)
-        pkg_check_modules(WEBKIT_GTK REQUIRED webkit2gtk-4.0)
-    endif()
-    pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
-
-    # Force system paths globally so JUCE internal modules resolve <gtk/gtk.h>
-    include_directories(SYSTEM 
-        ${GTK3_INCLUDE_DIRS}
-        ${WEBKIT_GTK_INCLUDE_DIRS}
-    )
-
-    # TARGET SPECIFIC RECOVERY LOOP:
-    # We iterate over the actual binary outputs (e.g., NewProject_Standalone)
-    # to register dependencies. This forces JUCE to execute juceaide on a concrete binary target!
-    foreach(format ${FORMATS})
-        set(target_format_name "${PROJECT_NAME}_${format}")
-        
-        if(TARGET ${target_format_name})
-            # Force compile flags & link properties to physical binaries
-            target_compile_options(${target_format_name} PRIVATE ${WEBKIT_GTK_CFLAGS_OTHER} ${GTK3_CFLAGS_OTHER})
-            target_link_libraries(${target_format_name} PRIVATE ${WEBKIT_GTK_LIBRARIES} ${GTK3_LIBRARIES})
-            
-            # Map JUCE's configuration property path specifically to this concrete target
-            target_include_directories(${target_format_name} PRIVATE
-                "${CMAKE_CURRENT_BINARY_DIR}/JUCE/modules/juce_gui_extra/juce_LinuxSubprocessHelper/$<CONFIG>"
-                "${CMAKE_CURRENT_BINARY_DIR}/juce_LinuxSubprocessHelper/$<CONFIG>/"
-            )
-        endif()
-    endforeach()
-endif()
-
-
 # IPP support, comment out to disable
 include(PamplejuceIPP)
 

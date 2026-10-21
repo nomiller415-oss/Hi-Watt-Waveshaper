@@ -1,0 +1,36 @@
+body
+{
+
+
+ background-image: url('https://t3.ftcdn.net/jpg/02/93/15/82/360_F_293158288_9czq91NFbdA6rkZxQ1iQjWMHEAqKHuFH.jpg');
+ background-size: cover; 
+}
+ body, html { margin: 0; padding: 0; overflow: hidden;}
+        #webgl-canvas { position: absolute; width: 100%; height: 100%; z-index: 1; }
+        .ui-overlay { position: relative; z-index: 2; top: 0px; left: 0px; }
+.gallery-container{
+  display:flex;
+grid-template: repeat(auto-fit, minmax(250px, 1fr)); 
+  gap: 9rem; /* Even spacing between items */
+  padding: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto; /* Centers the gallery container on the screen */
+
+
+}
+.item {
+  position: relative;
+  aspect-ratio: 4/3;
+  width: 100;
+}
+.label {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.85em;      /* Makes the font slightly smaller than body text */
+  font-style: italic;     /* Italicizes the text */
+  font-weight: 800;       /* Adjusts text boldness */
+  color: #222222;         /* Dark gray for a softer visual hierarchy */
+  position:relative;
+  top : -15px;
+}
+
+

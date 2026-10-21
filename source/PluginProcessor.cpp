@@ -3,16 +3,19 @@
 
 //==============================================================================
 PluginProcessor::PluginProcessor()
-     : AudioProcessor (BusesProperties()
-                     #if ! JucePlugin_IsMidiEffect
-                      #if ! JucePlugin_IsSynth
-                       .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
-                      #endif
-                       .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
-                     #endif
-                       )
+    : AudioProcessor (BusesProperties()
+#if !JucePlugin_IsMidiEffect
+    #if !JucePlugin_IsSynth
+              .withInput ("Input", juce::AudioChannelSet::stereo(), true)
+    #endif
+              .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
+#endif
+              ),
+      apvts (*this, nullptr, "Parameters", createParameterLayout())
+
 {
 }
+
 
 PluginProcessor::~PluginProcessor()
 {
@@ -129,6 +132,9 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
+    // Retrieve value safely from APVTS and apply to the buffer
+    auto gainValue = apvts.getRawParameterValue ("gain")->load();
+
     // In case we have more outputs than inputs, this code clears any output
     // channels that didn't contain input data, (because these aren't
     // guaranteed to be empty - they may contain garbage).
@@ -179,9 +185,20 @@ void PluginProcessor::setStateInformation (const void* data, int sizeInBytes)
     juce::ignoreUnused (data, sizeInBytes);
 }
 
+
+
 //==============================================================================
 // This creates new instances of the plugin..
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new PluginProcessor();
+}
+
+juce::AudioProcessorValueTreeState::ParameterLayout PluginProcessor::createParameterLayout()
+{
+    return { 
+            std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { "gain", 1 }, "Gain", 0.0f, 1.0f, 0.5f),
+            std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { "treble", 1 }, "Treble", -5.0f, 5.0f, 0.0f),
+                std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { "bass", 1 }, "Bass", -5.0f, 5.0f, 0.f)
+    };
 }
